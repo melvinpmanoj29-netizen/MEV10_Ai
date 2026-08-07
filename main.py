@@ -2,7 +2,7 @@ from brain.llm import ask_mev10
 
 
 def main():
-    print("=== MEV10 v0.1 ===")
+    print("=== MEV10 v0.3 ===")
     print("Type 'exit' to quit.\n")
 
     while True:
@@ -12,8 +12,8 @@ def main():
             print("Mev10: Goodbye!")
             break
 
-        reply = ask_mev10(user_input)
-        print(f"Mev10: {reply}\n")
+        ask_mev10(user_input)
+        print()
 
 
 if __name__ == "__main__":

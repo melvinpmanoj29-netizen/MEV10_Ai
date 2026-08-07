@@ -4,7 +4,7 @@ from brain.prompts import SYSTEM_PROMPT
 from brain.history import conversation_history
 
 
-def ask_mev10(message: str) -> str:
+def ask_mev10(message: str):
 
     messages = [
         {
@@ -13,7 +13,7 @@ def ask_mev10(message: str) -> str:
         }
     ]
 
-    messages.extend(conversation_history)
+    messages.extend(conversation_history[-10:])
 
     messages.append(
         {
@@ -22,12 +22,23 @@ def ask_mev10(message: str) -> str:
         }
     )
 
-    response = chat(
+    stream = chat(
         model="qwen3:8b",
         messages=messages,
+        stream=True,
+        think=False,
     )
 
-    reply = response.message.content
+    print("\nMEV10: ", end="", flush=True)
+
+    reply = ""
+
+    for chunk in stream:
+        text = chunk.message.content
+        print(text, end="", flush=True)
+        reply += text
+
+    print()
 
     conversation_history.append(
         {
