@@ -19,3 +19,13 @@ logs/
 
 # Python cache
 .pytest_cache/
+
+# MEV10 local AI models
+*.onnx
+*.onnx.json
+
+# MEV10 persistent local memory
+memory/
+
+# Generated audio
+voice/*.wav

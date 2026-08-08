@@ -2,9 +2,12 @@ from ollama import chat
 
 from brain.prompts import SYSTEM_PROMPT
 from brain.history import conversation_history
+from brain.memory import remember_name, get_memory_context
 
 
 def ask_mev10(message: str):
+    remember_name(message)
+    memory_context = get_memory_context()
 
     messages = [
         {
@@ -12,6 +15,13 @@ def ask_mev10(message: str):
             "content": SYSTEM_PROMPT,
         }
     ]
+    if memory_context:
+        messages.append(
+            {
+                "role": "system",
+                "content": memory_context,
+            }
+        )
 
     messages.extend(conversation_history[-10:])
 

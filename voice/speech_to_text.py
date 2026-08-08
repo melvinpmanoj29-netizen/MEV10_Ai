@@ -10,7 +10,7 @@ model = WhisperModel(
 
 def speech_to_text(audio_file="recording.wav") -> str:
 
-    segments, info = model.transcribe(audio_file)
+    segments, info = model.transcribe( audio_file,language="en",vad_filter=True,)
 
     text = ""
 
