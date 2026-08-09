@@ -5,8 +5,11 @@ from brain.history import conversation_history
 from brain.memory import remember_name, get_memory_context
 
 
-def ask_mev10(message: str):
+def stream_mev10(message: str):
+    """Stream MEV10's response chunk by chunk."""
+
     remember_name(message)
+
     memory_context = get_memory_context()
 
     messages = [
@@ -15,6 +18,7 @@ def ask_mev10(message: str):
             "content": SYSTEM_PROMPT,
         }
     ]
+
     if memory_context:
         messages.append(
             {
@@ -39,14 +43,15 @@ def ask_mev10(message: str):
         think=False,
     )
 
-    print("\nMEV10: ", end="", flush=True)
-
     reply = ""
 
     for chunk in stream:
         text = chunk.message.content
-        print(text, end="", flush=True)
-        reply += text
+
+        if text:
+            print(text, end="", flush=True)
+            reply += text
+            yield text
 
     print()
 
@@ -64,4 +69,8 @@ def ask_mev10(message: str):
         }
     )
 
-    return reply
+
+def ask_mev10(message: str) -> str:
+    """Compatibility wrapper for normal text-based MEV10."""
+
+    return "".join(stream_mev10(message))

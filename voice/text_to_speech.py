@@ -1,12 +1,21 @@
 import re
-import subprocess
-import sys
 import wave
 from pathlib import Path
 import winsound
+import unicodedata
 
+from piper.voice import PiperVoice
 
 VOICE_MODEL = "en_US-ryan-medium"
+MODEL_PATH = Path("en_US-ryan-medium.onnx")
+
+print("🔊 Loading MEV10 voice...")
+
+PIPER_VOICE = PiperVoice.load(
+    str(MODEL_PATH)
+)
+
+print("✅ MEV10 voice ready.")
 
 OUTPUT_FILE = Path("voice/mev10_response.wav")
 TEMP_DIR = Path("voice/tts_temp")
@@ -15,7 +24,7 @@ PAUSE_SECONDS = 0.25
 
 
 def clean_for_speech(text: str) -> str:
-    """Remove formatting and symbols that should not be spoken."""
+    """Remove formatting, emojis, and non-speech symbols."""
 
     # Remove code blocks
     text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
@@ -26,18 +35,32 @@ def clean_for_speech(text: str) -> str:
     # Remove Markdown formatting
     text = re.sub(r"[*_~`]+", "", text)
 
+    # Remove numbered Markdown list markers
+    text = re.sub(r"(?m)^\s*\d+\.\s*", "", text)
+
     # Remove Markdown links but keep visible text
     text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
 
-    # Remove emojis and symbols
-    text = "".join(
-        char
-        for char in text
-        if not (
+    cleaned = []
+
+    for char in text:
+        category = unicodedata.category(char)
+
+        # Remove emoji/symbol characters
+        if (
             0x1F300 <= ord(char) <= 0x1FAFF
             or 0x2600 <= ord(char) <= 0x27BF
-        )
-    )
+        ):
+            continue
+
+        # Remove Unicode marks such as emoji variation selectors
+        # and combining characters that should not be spoken alone.
+        if category.startswith("M"):
+            continue
+
+        cleaned.append(char)
+
+    text = "".join(cleaned)
 
     # Remove unnecessary symbols
     text = re.sub(r"[|<>]", " ", text)
@@ -63,23 +86,17 @@ def split_sentences(text: str) -> list[str]:
     ]
 
 
-def generate_sentence_audio(sentence: str, output_file: Path) -> None:
-    """Generate a WAV file for one sentence."""
+def generate_sentence_audio(
+    sentence: str,
+    output_file: Path,
+) -> None:
+    """Generate a WAV file using the already-loaded Piper model."""
 
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "piper",
-            "-m",
-            VOICE_MODEL,
-            "-f",
-            str(output_file),
-            "--",
+    with wave.open(str(output_file), "wb") as wav_file:
+        PIPER_VOICE.synthesize_wav(
             sentence,
-        ],
-        check=True,
-    )
+            wav_file,
+        )
 
 
 def combine_audio(files: list[Path], output_file: Path) -> None:
@@ -114,6 +131,33 @@ def combine_audio(files: list[Path], output_file: Path) -> None:
 
                 output.writeframes(silence)
 
+def speak_sentence(sentence: str) -> None:
+    """Generate and immediately play one sentence."""
+
+    sentence = clean_for_speech(sentence)
+
+    if not sentence:
+        return
+
+    temp_file = TEMP_DIR / "stream_sentence.wav"
+
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    try:
+        generate_sentence_audio(
+            sentence,
+            temp_file,
+        )
+
+        winsound.PlaySound(
+            str(temp_file),
+            winsound.SND_FILENAME,
+        )
+
+    finally:
+        if temp_file.exists():
+            temp_file.unlink()
+
 
 def speak(text: str) -> None:
     """Convert text to speech using Piper and play it."""
@@ -125,6 +169,12 @@ def speak(text: str) -> None:
 
     sentences = split_sentences(text)
 
+    sentences = [
+        sentence
+        for sentence in sentences
+        if sentence.strip()
+    ]
+
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
     audio_files = []
@@ -133,6 +183,9 @@ def speak(text: str) -> None:
 
         # Generate all sentences first
         for index, sentence in enumerate(sentences):
+
+            if not sentence.strip():
+                continue
 
             temp_file = TEMP_DIR / f"sentence_{index}.wav"
 
